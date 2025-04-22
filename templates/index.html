@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset Tracking System</title>
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@^7/ol.css" type="text/css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 600px;
+        }
+        .ol-popup {
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #cccccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 150px;
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+        }
+        .ol-popup:after {
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+        .ol-popup:before {
+            border-top-color: #cccccc;
+            border-width: 11px;
+            left: 48px;
+            margin-left: -11px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div id="popup" class="ol-popup" style="display: none;">
+        <div id="popup-content"></div>
+    </div>
+
+    <!-- OpenLayers JS -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@^7/ol.js"></script>
+    <script>
+        // JavaScript code will go here
+        // Wait for the DOM to be ready
+        document.addEventListener('DOMContentLoaded', function() {
+
+        // --- Popup Setup ---
+        const container = document.getElementById('popup');
+        const content = document.getElementById('popup-content');
+        // const closer = document.getElementById('popup-closer'); // Optional closer button
+
+        const overlay = new ol.Overlay({
+            element: container,
+            autoPan: true,
+            autoPanAnimation: {
+                duration: 250,
+            },
+        });
+
+        // --- Map Initialization ---
+        const map = new ol.Map({
+            target: 'map', // The ID of the div for the map
+            layers: [
+                // Base map layer (OpenStreetMap)
+                new ol.layer.Tile({
+                    source: new ol.source.OSM()
+                })
+                // Asset layer will be added later
+            ],
+            overlays: [overlay], // Add the popup overlay
+            view: new ol.View({
+                // Center on a location (e.g., near your sample data)
+                // Use ol.proj.fromLonLat to convert Lon/Lat to map projection
+                center: ol.proj.fromLonLat([79.88, 6.90]), // Adjust as needed [lon, lat]
+                zoom: 14 // Adjust zoom level
+            })
+        });
+
+        // --- Asset Layer Setup ---
+        const vectorSource = new ol.source.Vector(); // Source to hold asset features
+
+        const vectorLayer = new ol.layer.Vector({
+            source: vectorSource,
+            style: function(feature) {
+                // Basic style, can be enhanced later
+                return new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: 7,
+                        fill: new ol.style.Fill({ color: 'blue' }),
+                        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                    })
+                });
+            }
+        });
+
+        map.addLayer(vectorLayer); // Add the asset layer to the map
+
+        // --- Function to Fetch and Update Assets ---
+        function updateAssets() {
+            fetch('/api/assets') // Fetch data from Flask backend
+                .then(response => response.json())
+                .then(geojson => {
+                    console.log("Fetched GeoJSON:", geojson); // Log for debugging
+
+                    const format = new ol.format.GeoJSON({
+                    featureProjection: 'EPSG:3857' // Project GeoJSON (WGS84) to map view (Web Mercator)
+                    });
+
+                    // Read features from GeoJSON
+                    const features = format.readFeatures(geojson);
+
+                    vectorSource.clear(); // Remove old features
+                    vectorSource.addFeatures(features); // Add new features
+
+                    console.log("Features added to map:", features.length);
+                })
+                .catch(error => {
+                    console.error("Error fetching assets:", error);
+                });
+        }
+
+        // --- Initial data load and periodic refresh ---
+        updateAssets(); // Load assets immediately
+        setInterval(updateAssets, 10000); // Update every 10 seconds (10000 ms)
+
+        // --- Popup Display Logic ---
+        map.on('click', function (evt) {
+            const feature = map.forEachFeatureAtPixel(evt.pixel, function (feature) {
+                return feature; // Return the first feature found
+            });
+
+            if (feature) {
+                const coordinates = feature.getGeometry().getCoordinates();
+                const properties = feature.getProperties(); // Get all properties
+
+                // Format content for the popup
+                let popupContent = '<b>Asset Details</b><br>';
+                popupContent += `ID: ${properties.id}<br>`;
+                popupContent += `Name: ${properties.name}<br>`;
+                popupContent += `Type: ${properties.asset_type}<br>`;
+                popupContent += `Last Seen: ${new Date(properties.last_seen).toLocaleString()}<br>`;
+                // Add more properties if needed
+
+                content.innerHTML = popupContent;
+                overlay.setPosition(coordinates); // Position the popup
+            } else {
+                overlay.setPosition(undefined); // Hide popup if clicking empty space
+                // if (closer) closer.blur(); // Optional
+            }
+        });
+
+        // Optional: Add logic for a closer button if you have one
+        // if (closer) {
+        //     closer.onclick = function () {
+        //         overlay.setPosition(undefined);
+        //         closer.blur();
+        //         return false;
+        //     };
+        // }
+
+        }); // End of DOMContentLoaded
+    </script>
+</body>
+</html>
