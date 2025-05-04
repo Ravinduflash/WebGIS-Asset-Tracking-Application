@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Asset Tracking System</title>
+    <!-- OpenLayers JS -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/dist/ol.js"></script>
     <!-- OpenLayers CSS -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@^7/ol.css" type="text/css">
+    <link rel="stylesheet" href="/static/ol.css" type="text/css">
     <style>
         body {
             margin: 0;
@@ -51,13 +53,27 @@
     </style>
 </head>
 <body>
+    <nav style="background-color: #333; color: white; padding: 10px; text-align: center;">
+        <h1>WebGIS Asset Tracking Application by G.M.R.Dulshan</h1>
+    </nav>
+    <div style="margin: 10px; text-align: center;">
+        <label for="assetTypeFilter">Filter by Asset Type:</label>
+        <select id="assetTypeFilter">
+            <option value="all">All</option>
+            <option value="container">Container</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="person">Person</option>
+            <option value="equipment">Equipment</option>
+            <option value="sensor">Sensor</option>
+            <option value="drone">Drone</option>
+            <option value="animal">Animal</option>
+        </select>
+    </div>
     <div id="map"></div>
     <div id="popup" class="ol-popup" style="display: none;">
         <div id="popup-content"></div>
     </div>
 
-    <!-- OpenLayers JS -->
-    <script src="https://cdn.jsdelivr.net/npm/ol@^7/ol.js"></script>
     <script>
         // JavaScript code will go here
         // Wait for the DOM to be ready
@@ -101,11 +117,20 @@
         const vectorLayer = new ol.layer.Vector({
             source: vectorSource,
             style: function(feature) {
-                // Basic style, can be enhanced later
                 return new ol.style.Style({
                     image: new ol.style.Circle({
-                        radius: 7,
-                        fill: new ol.style.Fill({ color: 'blue' }),
+                        radius: 10,
+                        fill: new ol.style.Fill({
+                            color: feature.get('asset_type') === 'vehicle' ? 'blue' :
+                                   feature.get('asset_type') === 'sensor' ? 'green' :
+                                   feature.get('asset_type') === 'person' ? 'red' : 'purple' // Different colors for different asset types
+                        }),
+                        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                    }),
+                    text: new ol.style.Text({
+                        text: feature.get('name'), // Display the name property as a label
+                        font: '10px Arial, sans-serif',
+                        fill: new ol.style.Fill({ color: 'black' }),
                         stroke: new ol.style.Stroke({ color: 'white', width: 2 })
                     })
                 });
@@ -127,6 +152,10 @@
 
                     // Read features from GeoJSON
                     const features = format.readFeatures(geojson);
+
+                    // Add logging to confirm data processing
+                    console.log("GeoJSON data received:", geojson);
+                    console.log("Features processed:", features);
 
                     vectorSource.clear(); // Remove old features
                     vectorSource.addFeatures(features); // Add new features
@@ -176,6 +205,57 @@
         //         return false;
         //     };
         // }
+
+        // Add event listener for the dropdown filter
+        document.getElementById('assetTypeFilter').addEventListener('change', function() {
+            const selectedType = this.value;
+
+            // Update the filter logic to emphasize selected data points
+            vectorSource.getFeatures().forEach(feature => {
+                const assetType = feature.get('asset_type');
+                const isEmphasized = selectedType === 'all' || assetType === selectedType;
+                feature.setStyle(new ol.style.Style({
+                    image: new ol.style.Circle({
+                        radius: isEmphasized ? 10 : 5, // Bigger radius for selected type
+                        fill: new ol.style.Fill({
+                            color: isEmphasized ? 'orange' : 'gray' // Highlight selected type
+                        }),
+                        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                    }),
+                    text: isEmphasized ? new ol.style.Text({
+                        text: feature.get('name'),
+                        font: '14px Arial, sans-serif', // Bigger font for selected type
+                        fill: new ol.style.Fill({ color: 'black' }),
+                        stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                    }) : null // Show label only for selected type
+                }));
+            });
+        });
+
+        // Define the style function for filtering
+        function styleFunction(feature) {
+            return new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 7,
+                    fill: new ol.style.Fill({
+                        color: feature.get('asset_type') === 'vehicle' ? 'blue' :
+                               feature.get('asset_type') === 'sensor' ? 'green' :
+                               feature.get('asset_type') === 'person' ? 'red' :
+                               feature.get('asset_type') === 'container' ? 'orange' :
+                               feature.get('asset_type') === 'equipment' ? 'purple' :
+                               feature.get('asset_type') === 'drone' ? 'cyan' :
+                               feature.get('asset_type') === 'animal' ? 'brown' : 'gray'
+                    }),
+                    stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                }),
+                text: new ol.style.Text({
+                    text: feature.get('name'),
+                    font: '12px Arial, sans-serif',
+                    fill: new ol.style.Fill({ color: 'black' }),
+                    stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+                })
+            });
+        }
 
         }); // End of DOMContentLoaded
     </script>

@@ -55,7 +55,7 @@ def get_assets():
             "type": "FeatureCollection",
             "features": features
         }
-        return jsonify(feature_collection)
+        return jsonify(feature_collection), 200, {'Content-Type': 'application/json; charset=utf-8'}
     except Exception as e:
         conn.rollback()  # Rollback the transaction on error
         logging.error(f"Error fetching assets: {e}")
